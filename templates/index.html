@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ETF Analyzer</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: navy; color: white; }
+        .results-section { background-color: lightgray; padding: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container text-center my-4">
+        <h1 class="fw-bold" style="font-size: 36px;">ETF ANALYZER</h1>
+        <h2 style="font-size: 18px;">This website will use Alphavantage’s search and analytical tools to analyze ETFs. It works within the limitations of the free subscription, which are described below. Free subscription prices are unadjusted.</h2>
+    </div>
+    
+    <div class="container text-center">
+        <table class="table table-bordered text-white">
+            <tr><td>Number of charted ETF components ranked by weight:</td><td>{{ app_variable_list[0] }}</td></tr>
+            <tr><td>Number of stocks allowed per statistical query:</td><td>{{ app_variable_list[1] }}</td></tr>
+            <tr><td>Number of historical data points per stock in "compact" mode:</td><td>100</td></tr>
+        </table>
+    </div>
+    
+    <div class="container my-4">
+        <form method="POST" class="row justify-content-evenly">
+            <div class="row">  
+                <div class="col-2">
+                    <label for="ETF_symbol" class="form-label">Select ETF:</label>
+                    <input type="text" name="ETF_symbol" list="etf-list" class="form-control" required>
+                    <datalist id="etf-list">
+                        {% for name in names_list %}
+                        <option value="{{ name }}">{% endfor %}
+                    </datalist>
+                </div>
+                <div class="col-3">
+                    <label for="function" class="form-label">Select a Time Series:</label>
+                    <select name="params[function]" class="form-select" required>
+                        {% for item in time_series %}
+                        <option value="{{ item }}">{{ item }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-7">
+                    <label for="calculations" class="form-label">Select Calculations (Please select at least 1 and no more than 3 studies):</label>
+                    <select name="params[CALCULATIONS]" multiple class="form-select" required>
+                        {% for item in calculation_options %}
+                        <option value="{{ item }}">{{ item }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="row d-flex justify-content-center mt-3"> 
+                <div class="col-3" >
+                    <button type="submit" class="btn btn-primary w-100">Analyze</button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    {% if ETF_symbol %}
+    <div class="container results-section">
+        <h3 style="color:navy" class="text-center">ETF Overview</h3>
+        <div class="row justify-content-evenly">
+            <table class="table table-bordered col-4">
+                {% for key, value in ETF_data.items() %}
+                <tr><td>{{ key }}</td><td>{{ value }}</td></tr>
+                {% endfor %}
+            </table>
+            <img src="{{ pie_chart }}" class="col-3" style="max-width: 50%; width: auto; height: auto;">
+            <img src="{{ ETF_candle }}" class="col-3" style="max-width: 50%; width: auto; height: auto;">
+        </div>
+        
+        <h3 style="color:navy" class="text-center mt-5">Main Components Statistics</h3>
+        {% if metrics_list|length > 0 %}
+        <div class="row justify-content-evenly">
+            {% for item in metrics_list %}
+                <h3 style="color:navy">{{ item[0] }}</h3>  <!-- Display the DataFrame column name as a title -->
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Symbol</th>  <!-- Header for the index column -->
+                            <th>{{ item[1].columns[0] }}</th>  <!-- Header for the data column -->
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for index, row in item[1].iterrows() %}
+                        <tr>
+                            <td>{{ index }}</td>  <!-- Index of the DataFrame -->
+                            <td>{{ row[item[1].columns[0]] }}</td>  <!-- First column's value -->
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% if matrices_list|length > 0 %}
+        <div class="row justify-content-evenly">
+            {% for item in matrices_list %}
+                <h3 style="color:navy">{{ item[0] }}</h3>  <!-- Display the DataFrame column name as a title -->
+                <table class="table table-bordered text-center">
+                    <thead>
+                        <tr>
+                            <th></th>  <!-- Empty corner cell -->
+                            {% for col in item[1].columns %}
+                            <th>{{ col }}</th>  <!-- Table headers -->
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for index, row in item[1].iterrows() %}
+                        <tr>
+                            <td><strong>{{ index }}</strong></td>  <!-- Index (row header) -->
+                            {% for col in item[1].columns %}
+                            <td>{{ row[col] }}</td>  <!-- Data value -->
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% if histograms_list|length > 0 %} 
+        <h3 style="color:navy" class="text-center mt-5">Histograms</h3>
+        <div class="row justify-content-evenly">
+                {% for img in histograms_list %}
+                <img src="{{ img }}" class="col-2 mb-3" style="width: 40%;">
+                {% endfor %}
+        </div>
+        {% endif%}
+       
+        <h3 style="color:navy" class="text-center mt-5">Top {{ app_variable_list[0] }} {{ ETF_symbol }} Components Overview</h3>
+        <div class="row justify-content-evenly">
+            <table class="table table-bordered col-6" style="width:10%">
+                {% for key in top_n_components_df.keys() %}
+                <tr><td class="text-center">{{ key }}</td></tr>
+                {% endfor %}
+            </table>
+            <img src="{{ normalized_chart }}" class="col-6 mb-3" style="max-width: 80%; width: auto; height: auto;">
+        </div>
+        
+        <div class="row justify-content-evenly">
+            {% for img in candle_charts %}
+            <img src="{{ img }}" class="col-3 mb-3" style="max-width: 50%; width: auto; height: auto;">
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
